@@ -113,6 +113,7 @@ class RansomwareFileHandler(FileSystemEventHandler):
         last_modified = self.last_modified_map.get(path, 0)
         current_time = time.time()
         if current_time - last_modified < 0.1:  # 100ms window
+            logging.debug(f"Skipping duplicate modify event for {path} within 100ms")
             return
             
         self.last_modified_map[path] = current_time

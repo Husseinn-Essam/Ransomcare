@@ -19,7 +19,8 @@ try:
     WINDOWS_MODULES_AVAILABLE = True
 except ImportError:
     WINDOWS_MODULES_AVAILABLE = False
-    logging.warning("Windows-specific modules not available - some checks will be limited")
+    logging.warning("Windows-specific modules (winreg, win32*) not available. Some checks like admin privilege detection will be skipped.")
+    print("[!] Windows-specific modules not found. Admin process checks disabled")
 
 from .constants import TRUSTED_PROCESSES
 
@@ -76,6 +77,8 @@ def is_process_trusted(process_name):
 def is_admin_process(pid):
     """Check if process has admin privileges"""
     if not WINDOWS_MODULES_AVAILABLE:
+        # Log this only once or periodically if needed, to avoid spamming logs
+        # logging.debug("Skipping admin check for PID {pid}: Windows modules not available.")
         return False
         
     try:
@@ -88,7 +91,8 @@ def is_admin_process(pid):
         
         # Check if process belongs to admin group
         return win32security.CheckTokenMembership(token, admin_sid)
-    except:
+    except Exception as e:
+        logging.debug(f"Could not determine admin status for PID {pid}: {e}")
         return False
 
 def get_process_connections(pid):
@@ -100,30 +104,42 @@ def get_process_connections(pid):
         return []
 
 def log_suspicious_activity(pid, score, detection_reasons):
-    """Log suspicious process activity"""
+    """Log suspicious process activity and print alerts"""
     process_name = get_process_name(pid)
     process_path = get_process_path(pid)
     
     if score >= 25:  # HIGH_CONFIDENCE_THRESHOLD
         level = "CRITICAL"
+        print_prefix = "[!!!]"
     elif score >= 15:  # INITIAL_THRESHOLD
         level = "WARNING"
+        print_prefix = "[!]"
     else:
         level = "INFO"
+        print_prefix = "[*]" # Or maybe don't print INFO level details to console
     
     reasons_str = ", ".join(detection_reasons)
     
     log_message = (
-        f"{level}: Process {pid} ({process_name}) at {process_path} "
+        f"{level}: Process {pid} ('{process_name}') at '{process_path}' "
         f"scored {score} points. Reasons: {reasons_str}"
     )
     
+    console_message = (
+        f"{print_prefix} Suspicious activity detected: PID={pid}, Name='{process_name}', Score={score}. "
+        f"Reasons: {reasons_str}"
+    )
+
     if level == "CRITICAL":
         logging.critical(log_message)
+        print(console_message) # Print critical alerts to console
     elif level == "WARNING":
         logging.warning(log_message)
+        print(console_message) # Print warnings to console
     else:
+        # Only log INFO level, don't print to console unless debugging
         logging.info(log_message)
+        # print(f"[*] Info: PID={pid}, Name='{process_name}', Score={score}. Reasons: {reasons_str}") # Optional: for verbose console output
 
 def calculate_file_hash(file_path):
     """Calculate SHA256 hash of a file"""

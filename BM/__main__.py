@@ -28,16 +28,25 @@ if __name__ == "__main__":
         print("[+] Starting monitoring services...")
         
         # Start the monitoring system
-        start_monitoring()
+        start_monitoring() # This function now blocks until shutdown
+        
+        logging.info("RansomCare main process exiting normally.")
+        print("[+] RansomCare finished.")
+        sys.exit(0) # Explicit exit after start_monitoring returns
         
     except KeyboardInterrupt:
-        print("\n[*] RansomCare shutdown requested by user")
-        logging.info("RansomCare shutdown requested by user")
+        # This might be redundant if start_monitoring handles it, but safe to keep
+        print("\n[*] RansomCare shutdown requested by user (main entry).")
+        logging.info("RansomCare shutdown requested by user (main entry).")
+        # Ensure stop_event is set if start_monitoring didn't catch it
+        # (Requires stop_event to be accessible here, might need refactoring)
+        # if 'stop_event' in locals() or 'stop_event' in globals():
+        #    stop_event.set()
         sys.exit(0)
     except Exception as e:
-        error_msg = f"Critical error during startup: {str(e)}"
-        logging.critical(error_msg)
-        logging.debug(traceback.format_exc())
-        print(f"\n[!] {error_msg}")
-        print("[!] Check ransomcare.log for more details")
+        error_msg = f"Critical error during startup or main execution: {str(e)}"
+        logging.critical(error_msg, exc_info=True) # Log traceback for critical errors
+        # logging.debug(traceback.format_exc()) # Redundant if exc_info=True
+        print(f"\n[!!!] CRITICAL ERROR: {error_msg}")
+        print("[!!!] Check ransomcare.log for detailed traceback.")
         sys.exit(1)

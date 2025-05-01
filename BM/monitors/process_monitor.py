@@ -35,21 +35,26 @@ def monitor_processes():
             for proc in psutil.process_iter(['pid', 'name', 'cpu_percent']):
                 try:
                     pid = proc.info['pid']
+                    proc_name = proc.info['name']
                     
                     # Skip system processes
                     if pid <= 4:
+                        # logging.debug(f"Skipping system process PID {pid}") # Can be noisy
                         continue
                     
                     # Skip trusted processes for efficiency
-                    if is_process_trusted(proc.info['name']):
+                    if is_process_trusted(proc_name):
+                        # logging.debug(f"Skipping trusted process: {proc_name} (PID: {pid})") # Can be noisy
                         continue
                     
                     # Skip already flagged processes
                     if pid in flagged_processes:
+                        # logging.debug(f"Skipping already flagged process PID {pid}") # Can be noisy
                         continue
                     
                     # Initialize process history if needed
                     if pid not in process_history:
+                        logging.debug(f"Initializing history for new process: {proc_name} (PID: {pid})")
                         process_history[pid] = deque(maxlen=MAX_HISTORY_ENTRIES)
                     
                     # Record CPU usage
@@ -93,6 +98,7 @@ def monitor_processes():
                         pass
                     
                     # Analyze the process for ransomware behavior
+                    # logging.debug(f"Analyzing process: {proc_name} (PID: {pid})") # Can be noisy
                     with scan_lock:
                         analyze_process(pid)
                     
@@ -100,6 +106,7 @@ def monitor_processes():
                     process_count += 1
                 
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    # logging.debug(f"Process {pid} terminated or access denied during monitoring loop.")
                     pass
                 except Exception as e:
                     logging.debug(f"Error monitoring process {pid}: {e}")
@@ -137,12 +144,14 @@ def report_monitoring_stats(elapsed_time, process_count):
 def cleanup_expired_entries():
     """Clean up expired entries from tracking dictionaries"""
     current_time = time.time()
+    cleaned_pids = []
     
     # Clean up processes that no longer exist
     for pid in list(process_history.keys()):
         try:
             psutil.Process(pid)
         except psutil.NoSuchProcess:
+            cleaned_pids.append(pid)
             del process_history[pid]
             if pid in file_operations:
                 del file_operations[pid]
@@ -150,7 +159,10 @@ def cleanup_expired_entries():
                 del network_connections[pid]
             if pid in flagged_processes:
                 flagged_processes.remove(pid)
-    
+                
+    if cleaned_pids:
+        logging.debug(f"Cleaned up data for terminated PIDs: {cleaned_pids}")
+
     # Clean up expired events
     for pid in process_history:
         process_history[pid] = deque(

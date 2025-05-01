@@ -1,6 +1,7 @@
 """
 Detectors for suspicious process activity that may indicate ransomware.
 """
+import logging  # Added logging
 from ..utils import is_process_trusted, get_process_name
 
 # Import these from global state once we've refactored
@@ -17,11 +18,14 @@ def detect_ransomware_process_patterns(pid):
     
     # Check for high CPU usage spikes (encryption is CPU intensive)
     cpu_spikes = 0
+    high_cpu_values = []
     for event in proc_history_events:
         if event['type'] == 'cpu_usage' and event['value'] > 80:
             cpu_spikes += 1
+            high_cpu_values.append(event['value'])
     
     if cpu_spikes >= 3:
+        logging.debug(f"PID {pid}: Detected {cpu_spikes} high CPU usage spikes (values: {high_cpu_values}). Score +2")
         score += 2
     
     # Check for suspicious process names
@@ -32,9 +36,12 @@ def detect_ransomware_process_patterns(pid):
     
     for pattern in suspicious_names:
         if pattern in proc_name:
+            logging.debug(f"PID {pid}: Process name '{proc_name}' matches suspicious pattern '{pattern}'. Score +3")
             score += 3
             break
     
+    if score > 0:
+        logging.info(f"PID {pid}: Detected suspicious process patterns. Score contribution: {score}")
     return score
 
 def detect_high_disk_usage(pid):
@@ -50,6 +57,7 @@ def detect_high_disk_usage(pid):
     disk_events = [e for e in proc_history_events if e['type'] == 'disk_io']
     
     if not disk_events:
+        logging.debug(f"PID {pid}: No disk I/O events found for high disk usage check.")
         return 0
     
     # Calculate total read/write bytes
@@ -61,18 +69,23 @@ def detect_high_disk_usage(pid):
     read_rate = total_read_bytes / time_span
     write_rate = total_write_bytes / time_span
     
+    logging.debug(f"PID {pid}: Disk I/O over {time_span:.2f}s - Read: {total_read_bytes} bytes ({read_rate/1024/1024:.2f} MB/s), Write: {total_write_bytes} bytes ({write_rate/1024/1024:.2f} MB/s)")
+    
     # Score based on read/write rates
-    # High write rate is more suspicious (encryption creates writes)
     if write_rate > 10 * 1024 * 1024:  # More than 10 MB/s
         score += 3
+        logging.debug(f"PID {pid}: High write rate detected ({write_rate/1024/1024:.2f} MB/s). Score +3")
     elif write_rate > 5 * 1024 * 1024:  # More than 5 MB/s
         score += 2
+        logging.debug(f"PID {pid}: Moderate-high write rate detected ({write_rate/1024/1024:.2f} MB/s). Score +2")
     elif write_rate > 1 * 1024 * 1024:  # More than 1 MB/s
         score += 1
+        logging.debug(f"PID {pid}: Moderate write rate detected ({write_rate/1024/1024:.2f} MB/s). Score +1")
     
     # High read rate combined with high write could indicate file encryption
     if read_rate > 10 * 1024 * 1024 and write_rate > 5 * 1024 * 1024:
         score += 2
+        logging.debug(f"PID {pid}: High read and write rates detected. Score +2")
     
     # Check for sustained disk activity
     if len(disk_events) >= 5:
@@ -89,6 +102,10 @@ def detect_high_disk_usage(pid):
                     consecutive_high_io += 1
         
         if consecutive_high_io >= 3:
+            logging.debug(f"PID {pid}: Detected {consecutive_high_io} consecutive high I/O events. Score +2")
             score += 2
     
-    return min(score, 5)  # Cap at 5 points
+    final_score = min(score, 5)  # Cap at 5 points
+    if final_score > 0:
+        logging.info(f"PID {pid}: Detected high disk usage activity. Score contribution: {final_score}")
+    return final_score

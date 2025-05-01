@@ -6,6 +6,7 @@ import logging
 import time
 import threading
 import psutil
+import sys  # Added import
 from collections import defaultdict, deque
 
 # Configure logging with rotation
@@ -65,126 +66,188 @@ stop_event = threading.Event()        # Event to signal threads to stop
 
 def analyze_process(pid):
     """Analyze a process for ransomware behavior"""
-    with scan_lock:
-        try:
-            proc = psutil.Process(pid)
-            proc_name = proc.name().lower()
-            
-            # Skip trusted processes
-            if is_process_trusted(proc_name):
-                return
-            
-            # Apply all detection functions and calculate score
-            score = 0
-            detection_reasons = []
-            
-            # File encryption patterns
-            points = detect_file_encryption_patterns(pid)
-            if points > 0:
-                score += points * FEATURE_WEIGHTS['file_encryption_patterns']
-                detection_reasons.append(f"File encryption patterns: {points}")
-            
-            # Multiple extension changes
-            points = detect_multiple_extension_changes(pid)
-            if points > 0:
-                score += points * FEATURE_WEIGHTS['multiple_extension_changes']
-                detection_reasons.append(f"Multiple extension changes: {points}")
-            
-            # Mass file operations
-            points = detect_mass_file_operations(pid)
-            if points > 0:
-                score += points * FEATURE_WEIGHTS['mass_file_operations']
-                detection_reasons.append(f"Mass file operations: {points}")
-            
-            # Suspicious file access
-            points = detect_suspicious_file_access(pid)
-            if points > 0:
-                score += points * FEATURE_WEIGHTS['suspicious_file_access']
-                detection_reasons.append(f"Suspicious file access: {points}")
-                
-            # Ransomware extensions
-            points = detect_ransomware_extensions(pid)
-            if points > 0:
-                score += points * FEATURE_WEIGHTS['ransomware_extensions']
-                detection_reasons.append(f"Ransomware extensions detected: {points}")
-            
-            # High entropy writes
-            points = detect_high_entropy_writes(pid)
-            if points > 0:
-                score += points * FEATURE_WEIGHTS['high_entropy_writes']
-                detection_reasons.append(f"High entropy writes: {points}")
-            
-            # Shadow copy deletion
-            points = detect_shadow_copy_deletion(pid)
-            if points > 0:
-                score += points * FEATURE_WEIGHTS['shadow_copy_deletion']
-                detection_reasons.append(f"Shadow copy deletion attempt: {points}")
-            
-            # Network C2 traffic
-            points = detect_network_c2_traffic(pid)
-            if points > 0:
-                score += points * FEATURE_WEIGHTS['network_c2_traffic']
-                detection_reasons.append(f"Suspicious network traffic: {points}")
-            
-            # Ransomware process patterns
-            points = detect_ransomware_process_patterns(pid)
-            if points > 0:
-                score += points * FEATURE_WEIGHTS['ransomware_process_patterns']
-                detection_reasons.append(f"Ransomware process behavior: {points}")
-            
-            # High disk usage
-            points = detect_high_disk_usage(pid)
-            if points > 0:
-                score += points * FEATURE_WEIGHTS['high_disk_usage']
-                detection_reasons.append(f"High disk usage: {points}")
-            
-            # System modifications
-            points = detect_system_modifications(pid)
-            if points > 0:
-                score += points * FEATURE_WEIGHTS['system_modifications']
-                detection_reasons.append(f"Suspicious system modifications: {points}")
-            
-            # ML-based detection
-            points = detect_ransomware_ml(pid)
-            if points > 0:
-                score += points * FEATURE_WEIGHTS.get('ml_detection', 6)  # Default weight of 6
-                detection_reasons.append(f"Machine learning detection: {points}")
-            
-            # Log suspicious activity
-            if score > 0:
-                log_suspicious_activity(pid, score, detection_reasons)
-            
-            # Take action if score is high enough
-            if score >= HIGH_CONFIDENCE_THRESHOLD:
+    try:
+        proc = psutil.Process(pid)
+        proc_name = proc.name().lower()
+        
+        # Skip trusted processes
+        if is_process_trusted(proc_name):
+            return
+
+        logging.debug(f"Starting analysis for process: {proc_name} (PID: {pid})")
+        
+        # Apply all detection functions and calculate score
+        score = 0
+        detection_reasons = []
+        
+        # File encryption patterns
+        points = detect_file_encryption_patterns(pid)
+        if points > 0:
+            weighted_points = points * FEATURE_WEIGHTS['file_encryption_patterns']
+            score += weighted_points
+            reason = f"File encryption patterns ({points} raw, {weighted_points:.1f} weighted)"
+            detection_reasons.append(reason)
+            logging.debug(f"PID {pid}: +{weighted_points:.1f} score. Reason: {reason}")
+
+        # Multiple extension changes
+        points = detect_multiple_extension_changes(pid)
+        if points > 0:
+            weighted_points = points * FEATURE_WEIGHTS['multiple_extension_changes']
+            score += weighted_points
+            reason = f"Multiple extension changes ({points} raw, {weighted_points:.1f} weighted)"
+            detection_reasons.append(reason)
+            logging.debug(f"PID {pid}: +{weighted_points:.1f} score. Reason: {reason}")
+
+        # Mass file operations
+        points = detect_mass_file_operations(pid)
+        if points > 0:
+            weighted_points = points * FEATURE_WEIGHTS['mass_file_operations']
+            score += weighted_points
+            reason = f"Mass file operations ({points} raw, {weighted_points:.1f} weighted)"
+            detection_reasons.append(reason)
+            logging.debug(f"PID {pid}: +{weighted_points:.1f} score. Reason: {reason}")
+
+        # Suspicious file access
+        points = detect_suspicious_file_access(pid)
+        if points > 0:
+            weighted_points = points * FEATURE_WEIGHTS['suspicious_file_access']
+            score += weighted_points
+            reason = f"Suspicious file access ({points} raw, {weighted_points:.1f} weighted)"
+            detection_reasons.append(reason)
+            logging.debug(f"PID {pid}: +{weighted_points:.1f} score. Reason: {reason}")
+
+        # Ransomware extensions
+        points = detect_ransomware_extensions(pid)
+        if points > 0:
+            weighted_points = points * FEATURE_WEIGHTS['ransomware_extensions']
+            score += weighted_points
+            reason = f"Ransomware extensions detected ({points} raw, {weighted_points:.1f} weighted)"
+            detection_reasons.append(reason)
+            logging.debug(f"PID {pid}: +{weighted_points:.1f} score. Reason: {reason}")
+
+        # High entropy writes
+        points = detect_high_entropy_writes(pid)
+        if points > 0:
+            weighted_points = points * FEATURE_WEIGHTS['high_entropy_writes']
+            score += weighted_points
+            reason = f"High entropy writes ({points} raw, {weighted_points:.1f} weighted)"
+            detection_reasons.append(reason)
+            logging.debug(f"PID {pid}: +{weighted_points:.1f} score. Reason: {reason}")
+
+        # Shadow copy deletion
+        points = detect_shadow_copy_deletion(pid)
+        if points > 0:
+            weighted_points = points * FEATURE_WEIGHTS['shadow_copy_deletion']
+            score += weighted_points
+            reason = f"Shadow copy deletion attempt ({points} raw, {weighted_points:.1f} weighted)"
+            detection_reasons.append(reason)
+            logging.debug(f"PID {pid}: +{weighted_points:.1f} score. Reason: {reason}")
+
+        # Network C2 traffic
+        points = detect_network_c2_traffic(pid)
+        if points > 0:
+            weighted_points = points * FEATURE_WEIGHTS['network_c2_traffic']
+            score += weighted_points
+            reason = f"Suspicious network traffic ({points} raw, {weighted_points:.1f} weighted)"
+            detection_reasons.append(reason)
+            logging.debug(f"PID {pid}: +{weighted_points:.1f} score. Reason: {reason}")
+
+        # Ransomware process patterns
+        points = detect_ransomware_process_patterns(pid)
+        if points > 0:
+            weighted_points = points * FEATURE_WEIGHTS['ransomware_process_patterns']
+            score += weighted_points
+            reason = f"Ransomware process behavior ({points} raw, {weighted_points:.1f} weighted)"
+            detection_reasons.append(reason)
+            logging.debug(f"PID {pid}: +{weighted_points:.1f} score. Reason: {reason}")
+
+        # High disk usage
+        points = detect_high_disk_usage(pid)
+        if points > 0:
+            weighted_points = points * FEATURE_WEIGHTS['high_disk_usage']
+            score += weighted_points
+            reason = f"High disk usage ({points} raw, {weighted_points:.1f} weighted)"
+            detection_reasons.append(reason)
+            logging.debug(f"PID {pid}: +{weighted_points:.1f} score. Reason: {reason}")
+
+        # System modifications
+        points = detect_system_modifications(pid)
+        if points > 0:
+            weighted_points = points * FEATURE_WEIGHTS['system_modifications']
+            score += weighted_points
+            reason = f"Suspicious system modifications ({points} raw, {weighted_points:.1f} weighted)"
+            detection_reasons.append(reason)
+            logging.debug(f"PID {pid}: +{weighted_points:.1f} score. Reason: {reason}")
+
+        # ML-based detection
+        points = detect_ransomware_ml(pid)
+        if points > 0:
+            weighted_points = points * FEATURE_WEIGHTS.get('ml_detection', 6)
+            score += weighted_points
+            reason = f"Machine learning detection ({points} raw, {weighted_points:.1f} weighted)"
+            detection_reasons.append(reason)
+            logging.debug(f"PID {pid}: +{weighted_points:.1f} score. Reason: {reason}")
+        
+        # Log final score if above zero
+        if score > 0:
+            logging.info(f"Analysis complete for PID {pid} ('{proc_name}'). Final Score: {score:.1f}")
+            log_suspicious_activity(pid, score, detection_reasons)
+        else:
+            logging.debug(f"Analysis complete for PID {pid} ('{proc_name}'). Score: {score:.1f}. No suspicious activity detected.")
+
+        # Take action if score is high enough
+        if score >= HIGH_CONFIDENCE_THRESHOLD:
+            if pid not in flagged_processes:
+                logging.critical(f"CRITICAL THREAT DETECTED: PID={pid}, Name='{proc_name}', Score={score:.1f}. Initiating response.")
+                print(f"[!!!] CRITICAL THREAT: PID={pid}, Name='{proc_name}', Score={score:.1f}. Taking action!")
                 handle_detected_threat(pid, score, detection_reasons)
-            elif score >= INITIAL_THRESHOLD:
-                # For medium scores, just log a warning
                 flagged_processes.add(pid)
+            else:
+                logging.warning(f"PID {pid} ('{proc_name}') score {score:.1f} remains above critical threshold, but already handled.")
+        elif score >= INITIAL_THRESHOLD:
+            if pid not in flagged_processes:
+                 logging.warning(f"Potential threat detected: PID={pid}, Name='{proc_name}', Score={score:.1f}. Monitoring closely.")
+                 print(f"[!] WARNING: PID={pid}, Name='{proc_name}', Score={score:.1f}. Monitoring closely.")
+                 flagged_processes.add(pid)
+            else:
+                 logging.info(f"PID {pid} ('{proc_name}') score {score:.1f} remains above initial threshold, already flagged.")
                 
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            pass
-        except Exception as e:
-            logging.error(f"Error analyzing process {pid}: {e}")
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
+        logging.debug(f"Process {pid} terminated or access denied during analysis.")
+        pass
+    except Exception as e:
+        logging.error(f"Error analyzing process {pid}: {e}", exc_info=True)
 
 def start_monitoring():
     """Start all monitoring threads"""
     initialize_protected_dirs()
     
-    logging.info("===== Ransomware Detector Started =====")
-    logging.info(f"Current settings: Initial threshold={INITIAL_THRESHOLD}, High confidence threshold={HIGH_CONFIDENCE_THRESHOLD}")
+    logging.info("="*20 + " RansomCare Detector Starting " + "="*20)
+    logging.info(f"Version: 1.0.0")
+    logging.info(f"OS: {os.name}, Platform: {sys.platform}")
+    logging.info(f"Python Version: {sys.version}")
+    logging.info(f"Process ID: {os.getpid()}")
+    logging.info(f"Initial threshold={INITIAL_THRESHOLD}, High confidence threshold={HIGH_CONFIDENCE_THRESHOLD}")
+    logging.info(f"File Watch Interval: {FILE_WATCH_INTERVAL}s, Process Check Interval: {PROCESS_CHECK_INTERVAL}s")
+    logging.info(f"Trusted processes count: {len(TRUSTED_PROCESSES)}")
+    logging.info(f"Protected directories count: {len(PROTECTED_DIRS)}")
+    if PROTECTED_DIRS:
+        for d in sorted(list(PROTECTED_DIRS)):
+             logging.info(f"  - Protected: {d}")
     
-    print("Ransomware Detector started")
-    print(f"- Monitoring file operations with {FILE_WATCH_INTERVAL}s interval")
-    print(f"- Monitoring processes with {PROCESS_CHECK_INTERVAL}s interval")
+    print("="*60)
+    print("     RansomCare - Ransomware Detection System      ")
+    print("="*60)
+    print(f"[+] Initializing RansomCare...")
     print(f"- Alert thresholds: Warning={INITIAL_THRESHOLD}, Critical={HIGH_CONFIDENCE_THRESHOLD}")
-    print(f"- Trusted processes: {len(TRUSTED_PROCESSES)}")
-    print(f"- Protected directories: {len(PROTECTED_DIRS)}")
-    print("Monitoring active... Press Ctrl+C to stop")
+    print(f"- Monitoring {len(PROTECTED_DIRS)} protected directories.")
+    print(f"[+] Initializing ML detector...")
     
     # Initialize ML detector
     setup_ml_detector()
+    logging.info("ML detector initialized.")
+    print("[+] ML detector initialized.")
     
-    # Make global variables available to imported modules
     from . import utils
     utils.analyze_process = analyze_process
     
@@ -217,27 +280,53 @@ def start_monitoring():
     process_monitor.scan_lock = scan_lock
     process_monitor.analyze_process = analyze_process
     
+    logging.info("Starting monitoring threads...")
+    print("[+] Starting monitoring threads...")
+    
     # Start monitoring threads
-    file_thread = threading.Thread(target=monitor_file_operations, daemon=True)
-    process_thread = threading.Thread(target=monitor_processes, daemon=True)
+    file_thread = threading.Thread(target=monitor_file_operations, name="FileMonitorThread", daemon=True)
+    process_thread = threading.Thread(target=monitor_processes, name="ProcessMonitorThread", daemon=True)
     
     file_thread.start()
     process_thread.start()
     
+    logging.info("Monitoring threads started successfully.")
+    print("[+] Monitoring active. Press Ctrl+C to stop.")
+    
     try:
-        # Main thread waits for Ctrl+C
-        while True:
+        while file_thread.is_alive() and process_thread.is_alive():
             time.sleep(1)
     except KeyboardInterrupt:
-        print("\nStopping ransomware detector...")
+        print("\n[*] Shutdown signal received (Ctrl+C). Stopping monitors...")
+        logging.info("Shutdown signal received (KeyboardInterrupt).")
         stop_event.set()
+    except Exception as e:
+        logging.critical(f"Main loop encountered an unexpected error: {e}", exc_info=True)
+        print(f"[!!!] CRITICAL ERROR in main loop: {e}. Shutting down.")
+        stop_event.set()
+    finally:
+        logging.info("Waiting for monitoring threads to terminate...")
+        print("[*] Waiting for monitoring threads to finish...")
         
-        # Wait for threads to finish
         file_thread.join(timeout=5)
         process_thread.join(timeout=5)
         
-        logging.info("===== Ransomware Detector Stopped =====")
-        print("Ransomware Detector stopped")
+        if file_thread.is_alive():
+            logging.warning("File monitoring thread did not terminate gracefully.")
+            print("[!] File monitoring thread timed out.")
+        else:
+            logging.info("File monitoring thread terminated.")
+            print("[+] File monitoring thread stopped.")
+            
+        if process_thread.is_alive():
+            logging.warning("Process monitoring thread did not terminate gracefully.")
+            print("[!] Process monitoring thread timed out.")
+        else:
+            logging.info("Process monitoring thread terminated.")
+            print("[+] Process monitoring thread stopped.")
+            
+        logging.info("="*20 + " RansomCare Detector Stopped " + "="*20)
+        print("[+] RansomCare Detector stopped.")
 
 if __name__ == "__main__":
     try:

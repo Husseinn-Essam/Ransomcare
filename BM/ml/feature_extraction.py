@@ -4,6 +4,7 @@ Feature extraction for machine learning-based ransomware detection.
 import numpy as np
 from collections import Counter
 from datetime import datetime
+import logging  # Added logging
 
 def extract_process_features(process_history, file_operations, network_connections, pid):
     """Extract features from process history for ML detection"""
@@ -89,4 +90,5 @@ def extract_process_features(process_history, file_operations, network_connectio
         features['ops_per_second']
     ]
     
+    logging.debug(f"Extracted features for PID {pid}: {feature_vector}")  # Log the extracted features
     return np.array(feature_vector)

@@ -8,6 +8,7 @@ import numpy as np
 from sklearn.ensemble import RandomForestClassifier, IsolationForest
 from sklearn.preprocessing import StandardScaler
 from sklearn import metrics
+from sklearn.exceptions import NotFittedError
 
 from .feature_extraction import extract_process_features
 
@@ -22,6 +23,8 @@ class RansomwareDetectionModel:
         """Initialize the detection model"""
         self.model = None
         self.scaler = None
+        self.is_model_fitted = False
+        self.is_scaler_fitted = False
         self.feature_names = [
             'cpu_mean', 'cpu_max', 'cpu_std', 
             'io_read_mean', 'io_write_mean', 'io_read_max', 'io_write_max',
@@ -36,32 +39,75 @@ class RansomwareDetectionModel:
         scaler_path = scaler_path or SCALER_PATH
         
         try:
+            # Create the data directory if it doesn't exist
+            os.makedirs(os.path.dirname(model_path), exist_ok=True)
+            
             if os.path.exists(model_path):
-                with open(model_path, 'rb') as f:
-                    self.model = pickle.load(f)
-                logging.info(f"Loaded ML model from {model_path}")
+                try:
+                    with open(model_path, 'rb') as f:
+                        self.model = pickle.load(f)
+                    logging.info(f"Loaded ML model from {model_path}")
+                    self.is_model_fitted = True
+                except Exception as e:
+                    logging.warning(f"Failed to load model from {model_path}: {e}")
+                    self.is_model_fitted = False
+            else:
+                logging.warning(f"ML model file not found at {model_path}")
+                self.is_model_fitted = False
             
             if os.path.exists(scaler_path):
-                with open(scaler_path, 'rb') as f:
-                    self.scaler = pickle.load(f)
-                logging.info(f"Loaded feature scaler from {scaler_path}")
+                try:
+                    with open(scaler_path, 'rb') as f:
+                        self.scaler = pickle.load(f)
+                    logging.info(f"Loaded feature scaler from {scaler_path}")
+                    self.is_scaler_fitted = True
+                except Exception as e:
+                    logging.warning(f"Failed to load scaler from {scaler_path}: {e}")
+                    self.is_scaler_fitted = False
+            else:
+                logging.warning(f"Scaler file not found at {scaler_path}")
+                self.is_scaler_fitted = False
                 
+            # If model is not loaded, create a default model
             if self.model is None:
-                # Create a default model if none exists
-                logging.info("Creating default anomaly detection model")
+                logging.info("Creating default anomaly detection model (unfitted)")
                 self.model = IsolationForest(
                     n_estimators=100, 
-                    contamination=0.1,  # Assume 10% anomalies
+                    contamination=0.1,
                     random_state=42
                 )
+                self.is_model_fitted = False
                 
+            # If scaler is not loaded, create a default scaler
             if self.scaler is None:
+                logging.info("Creating default StandardScaler (unfitted)")
                 self.scaler = StandardScaler()
+                self.is_scaler_fitted = False
+
+            # Create an empty sample dataset to fit the scaler if it's not fitted
+            # This will allow predictions to continue with basic scaling
+            if not self.is_scaler_fitted:
+                logging.warning("Fitting scaler with dummy data to enable basic functionality")
+                try:
+                    # Create dummy features with same dimensions as our feature vector
+                    dummy_features = np.zeros((5, len(self.feature_names)))
+                    # Add some variety to avoid division by zero
+                    for i in range(5):
+                        dummy_features[i] = np.random.rand(len(self.feature_names))
+                    self.scaler.fit(dummy_features)
+                    self.is_scaler_fitted = True
+                    logging.info("Scaler fitted with dummy data. Basic scaling enabled.")
+                except Exception as e:
+                    logging.error(f"Failed to fit scaler with dummy data: {e}")
+                    self.is_scaler_fitted = False
+                    
         except Exception as e:
-            logging.error(f"Error loading ML model: {e}")
+            logging.error(f"Error loading ML model: {e}", exc_info=True)
             # Create default model on error
             self.model = IsolationForest(n_estimators=100, contamination=0.1, random_state=42)
             self.scaler = StandardScaler()
+            self.is_model_fitted = False
+            self.is_scaler_fitted = False
     
     def save_model(self, model_path=None, scaler_path=None):
         """Save the trained model"""
@@ -95,34 +141,59 @@ class RansomwareDetectionModel:
         
         try:
             # Fit the scaler
-            X_scaled = self.scaler.fit_transform(X)
+            self.scaler.fit(X)
+            self.is_scaler_fitted = True
+            X_scaled = self.scaler.transform(X)
             
             if y is not None:
                 # If we have labels, use a supervised classifier
                 self.model = RandomForestClassifier(n_estimators=100, random_state=42)
                 self.model.fit(X_scaled, y)
+                self.is_model_fitted = True
                 logging.info("Trained supervised ML model")
             else:
                 # Otherwise use anomaly detection
                 self.model = IsolationForest(n_estimators=100, contamination=0.1, random_state=42)
                 self.model.fit(X_scaled)
+                self.is_model_fitted = True
                 logging.info("Trained unsupervised anomaly detection model")
             
             self.save_model()
         except Exception as e:
-            logging.error(f"Error training ML model: {e}")
+            logging.error(f"Error training ML model: {e}", exc_info=True)
+            self.is_model_fitted = False
     
     def predict(self, X):
         """Predict if the sample is ransomware or not"""
         if self.model is None:
             logging.warning("Model not initialized for prediction")
             return 0
+            
+        # If model is not fitted, we can't make predictions
+        if not self.is_model_fitted:
+            if isinstance(self.model, IsolationForest):
+                # With isolation forest, we can substitute a sensible default
+                # since we can't actually predict
+                logging.debug("Using default score for unfitted model")
+                return 0  # Default score for unfitted model
+            else:
+                logging.warning("Skipping ML prediction: model not fitted")
+                return 0
         
         if len(X.shape) == 1:
             X = X.reshape(1, -1)
         
         try:
-            X_scaled = self.scaler.transform(X) if self.scaler is not None else X
+            # Use scaler if it's fitted
+            if self.is_scaler_fitted:
+                try:
+                    X_scaled = self.scaler.transform(X)
+                except Exception as e:
+                    logging.warning(f"Error applying scaler: {str(e)}. Using unscaled data.")
+                    X_scaled = X
+            else:
+                logging.debug("Scaler not fitted. Using unscaled data.")
+                X_scaled = X
             
             if isinstance(self.model, IsolationForest):
                 # For anomaly detection: -1 is anomaly, 1 is normal
@@ -139,6 +210,9 @@ class RansomwareDetectionModel:
                 # Convert to a score between 0-10
                 score = 10 * ransomware_prob
                 return score
+        except NotFittedError:
+            logging.warning("ML model or scaler not fitted. Returning default score.")
+            return 0
         except Exception as e:
             logging.error(f"Error predicting with ML model: {e}")
             return 0
