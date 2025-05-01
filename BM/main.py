@@ -50,7 +50,9 @@ from .detectors import (
     detect_network_c2_traffic,
     detect_ransomware_process_patterns,
     detect_system_modifications,
-    detect_high_disk_usage
+    detect_high_disk_usage,
+    detect_ransomware_ml,
+    setup_ml_detector
 )
 
 # Global state
@@ -142,6 +144,12 @@ def analyze_process(pid):
                 score += points * FEATURE_WEIGHTS['system_modifications']
                 detection_reasons.append(f"Suspicious system modifications: {points}")
             
+            # ML-based detection
+            points = detect_ransomware_ml(pid)
+            if points > 0:
+                score += points * FEATURE_WEIGHTS.get('ml_detection', 6)  # Default weight of 6
+                detection_reasons.append(f"Machine learning detection: {points}")
+            
             # Log suspicious activity
             if score > 0:
                 log_suspicious_activity(pid, score, detection_reasons)
@@ -173,6 +181,9 @@ def start_monitoring():
     print(f"- Protected directories: {len(PROTECTED_DIRS)}")
     print("Monitoring active... Press Ctrl+C to stop")
     
+    # Initialize ML detector
+    setup_ml_detector()
+    
     # Make global variables available to imported modules
     from . import utils
     utils.analyze_process = analyze_process
@@ -182,11 +193,15 @@ def start_monitoring():
     from .detectors import process_activity as detectors_proc
     from .detectors import network_activity as detectors_net
     from .detectors import system_changes as detectors_sys
+    from .detectors import ml_detector
     
     detectors_file_ops.file_operations = file_operations
     detectors_proc.process_history = process_history
     detectors_net.network_connections = network_connections
     detectors_sys.process_history = process_history
+    ml_detector.process_history = process_history
+    ml_detector.file_operations = file_operations
+    ml_detector.network_connections = network_connections
     
     from . import monitors
     from .monitors import file_monitor, process_monitor

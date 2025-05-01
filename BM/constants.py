@@ -10,7 +10,20 @@ TRUSTED_PROCESSES = {
     "powershell.exe", "cmd.exe", "python.exe", "svchost.exe", "spoolsv.exe",
     "devenv.exe", "winword.exe", "excel.exe", "powerpnt.exe", "teams.exe",
     "spotify.exe", "discord.exe", "msiexec.exe", "winzip.exe", "7z.exe",
-    "pycharm64.exe", "intellij.exe", "idea64.exe", "node.exe", "npm.exe","windowsterminal.exe",
+    "pycharm64.exe", "intellij.exe", "idea64.exe", "node.exe", "npm.exe", "windowsterminal.exe",
+
+    # Windows system processes that were falsely flagged
+    "applicationframehost.exe", "taskhostw.exe", "searchhost.exe",
+    "startmenuexperiencehost.exe", "runtimebroker.exe", "onedrive.exe",
+    "filecoauth.exe", "shellhost.exe", "securityhealthsystray.exe",
+    "openconsole.exe", "sihost.exe", "smartscreen.exe", "vboxtray.exe",
+    "cortana.exe", "backgroundtaskhost.exe", "dwm.exe", "lsass.exe",
+    "csrss.exe", "services.exe", "winlogon.exe", "wininit.exe",
+    "system", "registry", "smss.exe", "taskhost.exe", "conhost.exe",
+    "dllhost.exe", "taskmgr.exe", "fontdrvhost.exe", "ctfmon.exe",
+    "winstore.app.exe", "systemsettings.exe", "calculator.exe", "python3.13.exe",
+    "textinputhost.exe", "settingsynchost.exe", "microsoftedge.exe", "msedgewebview2.exe",
+    "nodejs.exe", "git.exe", "docker.exe", "wsl.exe", "notepad++.exe"
 }
 
 # File extensions commonly targeted by ransomware
@@ -42,7 +55,8 @@ FEATURE_WEIGHTS = {
     'network_c2_traffic': 4,           # Potential command & control
     'ransomware_process_patterns': 5,  # Process behavior patterns
     'system_modifications': 6,         # Registry or service changes
-    'high_disk_usage': 0,              # High disk I/O operations
+    'high_disk_usage': 3,              # High disk I/O operations
+    'ml_detection': 6,                 # Machine learning based detection
 }
 
 # Configuration of thresholds

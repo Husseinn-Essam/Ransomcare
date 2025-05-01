@@ -23,6 +23,11 @@ from .system_changes import (
     detect_system_modifications
 )
 
+from .ml_detector import (
+    detect_ransomware_ml,
+    setup_ml_detector
+)
+
 __all__ = [
     'detect_file_encryption_patterns',
     'detect_multiple_extension_changes',
@@ -34,5 +39,7 @@ __all__ = [
     'detect_high_disk_usage',
     'detect_network_c2_traffic',
     'detect_shadow_copy_deletion',
-    'detect_system_modifications'
+    'detect_system_modifications',
+    'detect_ransomware_ml',
+    'setup_ml_detector'
 ]

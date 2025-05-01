@@ -21,6 +21,7 @@ class RansomwareFileHandler(FileSystemEventHandler):
     
     def __init__(self):
         self.last_modified_map = {}
+        self.event_counts = {"created": 0, "deleted": 0, "modified": 0, "moved": 0}
         
     def get_process_for_file(self, path):
         """Attempt to identify the process modifying a file."""
@@ -45,7 +46,12 @@ class RansomwareFileHandler(FileSystemEventHandler):
             return
             
         path = event.src_path
+        self.event_counts["created"] += 1
+        
         pid = self.get_process_for_file(path)
+        proc_name = get_process_name(pid) if pid else "Unknown"
+        
+        logging.debug(f"File created: {path} by process {proc_name} (PID: {pid})")
         
         if pid:
             operation = {
@@ -59,7 +65,12 @@ class RansomwareFileHandler(FileSystemEventHandler):
                 if os.path.exists(path) and os.path.getsize(path) > 0:
                     with open(path, 'rb') as f:
                         data = f.read(8192)
-                        operation['entropy'] = calculate_entropy(data)
+                        entropy = calculate_entropy(data)
+                        operation['entropy'] = entropy
+                        
+                        if entropy > 7.0:
+                            logging.info(f"High entropy file created: {path} (entropy: {entropy:.2f}) by {proc_name}")
+                            print(f"[!] High entropy file detected: {os.path.basename(path)} by {proc_name}")
             except:
                 pass
                 
@@ -73,7 +84,12 @@ class RansomwareFileHandler(FileSystemEventHandler):
             return
             
         path = event.src_path
+        self.event_counts["deleted"] += 1
+        
         pid = self.get_process_for_file(path)
+        proc_name = get_process_name(pid) if pid else "Unknown"
+        
+        logging.debug(f"File deleted: {path} by process {proc_name} (PID: {pid})")
         
         if pid:
             operation = {
@@ -92,7 +108,6 @@ class RansomwareFileHandler(FileSystemEventHandler):
             return
         
         path = event.src_path
-        pid = self.get_process_for_file(path)
         
         # Avoid duplicate events in short time windows
         last_modified = self.last_modified_map.get(path, 0)
@@ -101,6 +116,12 @@ class RansomwareFileHandler(FileSystemEventHandler):
             return
             
         self.last_modified_map[path] = current_time
+        self.event_counts["modified"] += 1
+        
+        pid = self.get_process_for_file(path)
+        proc_name = get_process_name(pid) if pid else "Unknown"
+        
+        logging.debug(f"File modified: {path} by process {proc_name} (PID: {pid})")
         
         if pid:
             operation = {
@@ -114,7 +135,12 @@ class RansomwareFileHandler(FileSystemEventHandler):
                 if os.path.exists(path) and os.path.getsize(path) > 0:
                     with open(path, 'rb') as f:
                         data = f.read(8192)
-                        operation['entropy'] = calculate_entropy(data)
+                        entropy = calculate_entropy(data)
+                        operation['entropy'] = entropy
+                        
+                        if entropy > 7.0:
+                            logging.info(f"High entropy file modification: {path} (entropy: {entropy:.2f}) by {proc_name}")
+                            print(f"[!] High entropy modification: {os.path.basename(path)} by {proc_name}")
             except:
                 pass
                 
@@ -129,7 +155,12 @@ class RansomwareFileHandler(FileSystemEventHandler):
             
         src_path = event.src_path
         dest_path = event.dest_path
+        self.event_counts["moved"] += 1
+        
         pid = self.get_process_for_file(dest_path)
+        proc_name = get_process_name(pid) if pid else "Unknown"
+        
+        logging.debug(f"File moved: {src_path} -> {dest_path} by process {proc_name} (PID: {pid})")
         
         if pid:
             operation = {
@@ -145,30 +176,62 @@ class RansomwareFileHandler(FileSystemEventHandler):
 
 def monitor_file_operations():
     """Monitor file system operations using watchdog"""
+    logging.info("File system monitoring started")
+    print("[+] File system monitoring thread started")
+    
+    start_time = time.time()
+    last_stats_time = start_time
+    
     try:
         event_handler = RansomwareFileHandler()
         observer = Observer()
         
         # Monitor protected directories
+        monitored_dirs = 0
         for directory in PROTECTED_DIRS:
             try:
                 observer.schedule(event_handler, directory, recursive=True)
+                monitored_dirs += 1
                 logging.info(f"Monitoring directory: {directory}")
+                print(f"[+] Monitoring directory: {directory}")
             except Exception as e:
                 logging.error(f"Error scheduling watchdog for {directory}: {e}")
+                print(f"[!] Error monitoring directory {directory}: {e}")
         
         # Start the observer
         observer.start()
-        logging.info("File system monitoring started using watchdog")
+        logging.info(f"File system monitoring started on {monitored_dirs} directories")
+        print(f"[+] File system monitoring active on {monitored_dirs} directories")
         
         try:
             while not stop_event.is_set():
+                current_time = time.time()
+                
+                # Print periodic stats (every 30 seconds)
+                if current_time - last_stats_time > 30:
+                    elapsed = current_time - start_time
+                    created = event_handler.event_counts["created"]
+                    modified = event_handler.event_counts["modified"]
+                    deleted = event_handler.event_counts["deleted"]
+                    moved = event_handler.event_counts["moved"]
+                    
+                    stats_msg = (f"File monitor stats: Uptime={elapsed:.1f}s, "
+                                f"Created={created}, Modified={modified}, "
+                                f"Deleted={deleted}, Moved={moved}")
+                    
+                    logging.info(stats_msg)
+                    print(f"[*] {stats_msg}")
+                    last_stats_time = current_time
+                
                 time.sleep(1)
         except KeyboardInterrupt:
             pass
         finally:
             observer.stop()
             observer.join()
+            logging.info("File system observer stopped")
+            print("[+] File system monitoring stopped")
             
     except Exception as e:
         logging.error(f"File monitoring error: {e}")
+        print(f"[!] File monitoring error: {e}")

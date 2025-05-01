@@ -20,8 +20,18 @@ analyze_process = None      # Will be replaced with global function
 
 def monitor_processes():
     """Monitor process activity"""
+    logging.info("Process monitoring started")
+    print("[+] Process monitoring thread started")
+    
+    process_count = 0
+    start_time = time.time()
+    last_stats_time = start_time
+    
     try:
         while not stop_event.is_set():
+            current_time = time.time()
+            processes_checked = 0
+            
             for proc in psutil.process_iter(['pid', 'name', 'cpu_percent']):
                 try:
                     pid = proc.info['pid']
@@ -85,6 +95,10 @@ def monitor_processes():
                     # Analyze the process for ransomware behavior
                     with scan_lock:
                         analyze_process(pid)
+                    
+                    processes_checked += 1
+                    process_count += 1
+                
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     pass
                 except Exception as e:
@@ -93,9 +107,32 @@ def monitor_processes():
             # Clean up expired entries
             cleanup_expired_entries()
             
+            # Print periodic stats
+            if current_time - last_stats_time > 30:  # Every 30 seconds
+                report_monitoring_stats(current_time - start_time, process_count)
+                last_stats_time = current_time
+                
             time.sleep(1)  # PROCESS_CHECK_INTERVAL
+    
     except Exception as e:
         logging.error(f"Process monitoring error: {e}")
+        print(f"[!] Process monitoring error: {e}")
+    
+    logging.info("Process monitoring stopped")
+    print("[+] Process monitoring thread stopped")
+
+def report_monitoring_stats(elapsed_time, process_count):
+    """Report monitoring statistics to log and console"""
+    active_processes = len(process_history)
+    flagged_count = len(flagged_processes)
+    
+    stats_msg = (f"Process monitor stats: Uptime={elapsed_time:.1f}s, "
+                f"Processes monitored={active_processes}, "
+                f"Total checks={process_count}, "
+                f"Flagged processes={flagged_count}")
+    
+    logging.info(stats_msg)
+    print(f"[*] {stats_msg}")
 
 def cleanup_expired_entries():
     """Clean up expired entries from tracking dictionaries"""
