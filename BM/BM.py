@@ -81,7 +81,7 @@ FEATURE_WEIGHTS = {
     'network_c2_traffic': 4,           # Potential command & control
     'ransomware_process_patterns': 5,  # Process behavior patterns
     'system_modifications': 6,         # Registry or service changes
-    'high_disk_usage': 7,              # High disk I/O operations
+    'high_disk_usage': 0,              # High disk I/O operations
 }
 
 # Configuration of thresholds
