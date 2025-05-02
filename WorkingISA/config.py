@@ -76,31 +76,33 @@ CRITICAL_SYSTEM_PATHS = [
 #------------------------------------------------------------------------------
 # Processes to ignore during monitoring (common system and safe processes)
 IGNORED_PROCESSES = [
-    # System processes
-    'System', 'Registry', 'Memory Compression', 'svchost.exe', 'csrss.exe', 
+    # System processes (updated)
+    'System', 'Registry', 'Memory Compression', 'svchost.exe', 'csrss.exe',
     'services.exe', 'lsass.exe', 'winlogon.exe', 'explorer.exe', 'dwm.exe',
     'spoolsv.exe', 'smss.exe', 'ntoskrnl.exe', 'wininit.exe', 'taskhost.exe',
     'taskhostw.exe', 'RuntimeBroker.exe', 'SearchIndexer.exe', 'ShellExperienceHost.exe',
+    'conhost.exe', 'backgroundTaskHost.exe', 'WmiPrvSE.exe', 'SettingSyncHost.exe',
     
-    # Common applications
+    # Common applications (expanded)
     'chrome.exe', 'firefox.exe', 'msedge.exe', 'iexplore.exe', 
-    'notepad.exe', 'calc.exe', 'mspaint.exe',
+    'notepad.exe', 'calc.exe', 'mspaint.exe', 'winver.exe', 'control.exe',
+    'mmc.exe', 'msiexec.exe', 'cmd.exe',
     
-    # Background services
-    'audiodg.exe', 'SearchUI.exe', 'OneDrive.exe', 'WindowsDefender.exe',
-    'MsMpEng.exe', 'SecurityHealthService.exe',
+    # Background services (streamlined)
+    'audiodg.exe', 'SearchUI.exe', 'OneDrive.exe', 'MsMpEng.exe',
+    'SecurityHealthService.exe', 'wuauclt.exe',
     
-    # Additional processes from active list
+    # Updated processes from active list
     'fontdrvhost.exe', 'msedgewebview2.exe', 'smartscreen.exe', 'ShellHost.exe',
-    'SearchHost.exe', 'dllhost.exe', 'python3.13.exe', 'Widgets.exe',
+    'SearchHost.exe', 'dllhost.exe', 'python.exe', 'python3.13.exe', 'Widgets.exe',
     'StartMenuExperienceHost.exe', 'WidgetService.exe', 'ctfmon.exe', 'sihost.exe',
     'NisSrv.exe',
     
-    # Safe processes from provided list
-    'VBoxService.exe', 'MemCompression', 'AggregatorHost.exe', 'MpDefenderCoreService.exe',
-    'MicrosoftEdgeUpdate.exe', 'SecurityHealthSystray.exe', 'VBoxTray.exe', 
-    'SystemSettings.exe', 'WindowsTerminal.exe', 'ApplicationFrameHost.exe', 
-    'UserOOBEBroker.exe', 'TextInputHost.exe',
+    # Safe processes (cleaned up)
+    'VBoxService.exe', 'AggregatorHost.exe', 'MpDefenderCoreService.exe',
+    'MicrosoftEdgeUpdate.exe', 'SecurityHealthSystray.exe', 'VBoxTray.exe',
+    'SystemSettings.exe', 'WindowsTerminal.exe', 'ApplicationFrameHost.exe',
+    'UserOOBEBroker.exe', 'TextInputHost.exe', 'OpenConsole.exe', 
 ]
 
 #------------------------------------------------------------------------------
