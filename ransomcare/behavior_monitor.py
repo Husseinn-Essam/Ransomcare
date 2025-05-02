@@ -246,7 +246,7 @@ class BehaviorMonitor:
     def _score_file_modifications(self, pid, data, window_start, component_scores):
         """Calculate score component for rapid file modifications."""
         recent_mods = sum(1 for ts, _ in data.get("file_ops", []) if ts.timestamp() > window_start)
-        if recent_mods > 20:
+        if recent_mods > 0:  # Changed from 20 to catch any modifications
             mod_score = min(recent_mods / 5, 10) * WEIGHTS["rapid_file_modification"] / 10
             component_scores["rapid_file_modification"] = mod_score
             logger.debug(f"PID {pid}: {recent_mods} file modifications in window, score: {mod_score:.2f}")
@@ -256,7 +256,7 @@ class BehaviorMonitor:
     def _score_file_deletions(self, pid, data, window_start, component_scores):
         """Calculate score component for mass file deletions."""
         recent_dels = sum(1 for ts, _ in data.get("deletions", []) if ts.timestamp() > window_start)
-        if recent_dels > 10:
+        if recent_dels > 0:  # Changed from 10 to catch any deletions
             del_score = min(recent_dels / 2, 10) * WEIGHTS["mass_deletion"] / 10
             component_scores["mass_deletion"] = del_score
             logger.debug(f"PID {pid}: {recent_dels} file deletions in window, score: {del_score:.2f}")
@@ -266,7 +266,7 @@ class BehaviorMonitor:
     def _score_file_writes(self, pid, data, window_start, component_scores):
         """Calculate score component for mass file writes."""
         recent_writes = sum(1 for ts, _ in data.get("file_writes", []) if ts.timestamp() > window_start)
-        if recent_writes > 30:
+        if recent_writes > 0:  # Changed from 30 to catch any writes
             write_score = min(recent_writes / 10, 10) * WEIGHTS["mass_file_writes"] / 10
             component_scores["mass_file_writes"] = write_score
             logger.debug(f"PID {pid}: {recent_writes} file writes in window, score: {write_score:.2f}")
@@ -278,7 +278,8 @@ class BehaviorMonitor:
         cpu_values = [cpu for _, cpu in data.get("cpu_history", []) if cpu > 0]
         if cpu_values:
             avg_cpu = sum(cpu_values) / len(cpu_values)
-            if avg_cpu > 70:
+            # Lower threshold to catch more potentially suspicious CPU usage
+            if avg_cpu > 30:  # Changed from 70 to be more sensitive
                 cpu_score = min(avg_cpu / 10, 10) * WEIGHTS["high_cpu_usage"] / 10
                 component_scores["high_cpu_usage"] = cpu_score
                 logger.debug(f"PID {pid}: Average CPU {avg_cpu:.1f}%, score: {cpu_score:.2f}")

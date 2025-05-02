@@ -29,30 +29,27 @@ file_logger.setLevel(logging.DEBUG)
 #------------------------------------------------------------------------------
 # DETECTION THRESHOLDS AND TIMING
 #------------------------------------------------------------------------------
-THRESHOLD = 20              # The threshold score for flagging a process as malicious
-MONITOR_INTERVAL = 5        # Seconds between monitoring cycles
-HISTORY_WINDOW = 30         # Seconds of history to keep for rate calculations
+THRESHOLD = 25              # The threshold score for flagging a process as malicious
+MONITOR_INTERVAL = 2        # Seconds between monitoring cycles
+HISTORY_WINDOW = 60         # Seconds of history to keep for rate calculations
 
 # File operation monitoring settings
 SEQUENTIAL_FILE_THRESHOLD = 5       # Number of sequential file operations that might indicate ransomware
-SEQUENTIAL_TIME_WINDOW = 10         # Time window in seconds for sequential operations
+SEQUENTIAL_TIME_WINDOW = 60         # Time window in seconds for sequential operations
 PROCESS_IDENTIFICATION_TIMEOUT = 3.0  # Seconds to wait for process identification before giving up
 VERBOSE_PROCESS_IDENTIFICATION = True  # Enable detailed logging for process identification
 
-#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------ 
 # FEATURE WEIGHTS FOR SCORING
 #------------------------------------------------------------------------------
 WEIGHTS = {
-    "rapid_file_modification": 15,
-    "mass_deletion": 25,
-    "mass_file_writes": 20,
-    "high_cpu_usage": 10,
-    "encrypted_file_writes": 20,
-    "weird_extension_writes": 15,
-    "critical_system_access": 25,
-    "api_hooks_triggered": 25,
-    "memory_patterns": 20,
-    "network_traffic_anomaly": 20
+    "rapid_file_modification": 35,   # Increased weight for rapid file changes
+    "mass_deletion": 30,             # Higher weight for mass deletions
+    "mass_file_writes": 25,          # Slightly increased weight for mass writes
+    "high_cpu_usage": 10,            # Lower weight for CPU usage
+    "encrypted_file_writes": 40,     # High weight for encrypted writes
+    "weird_extension_writes": 20,    # Moderate weight for suspicious extensions
+    "critical_system_access": 30,    # High weight for critical system access
 }
 
 #------------------------------------------------------------------------------
