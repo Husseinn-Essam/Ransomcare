@@ -263,7 +263,6 @@ class FileMonitorHandler(FileSystemEventHandler):
             (self._check_open_files, 0.5),           # Check open file handles
             (self._check_directory_activity, 0.7),   # Check recent directory activity
             (self._check_active_processes, 0.8),     # Check processes with high activity
-            (self._check_suspicious_processes, 1.0)  # Last resort: check suspicious processes
         ]
         
         # Try each strategy until we identify a process or run out of time

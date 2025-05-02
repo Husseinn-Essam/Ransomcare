@@ -203,7 +203,7 @@ class BehaviorMonitor:
                 "critical_access": deque(maxlen=100),
                 "timestamp": datetime.now()
             }
-    
+####################### SCORE CALCULATION #############################################################################    
     def _calculate_score(self, pid, proc):
         """
         Calculate the malicious behavior score for a process.
@@ -232,7 +232,7 @@ class BehaviorMonitor:
             total_score += self._score_encrypted_writes(pid, data, window_start, component_scores)
             total_score += self._score_suspicious_extensions(pid, data, window_start, component_scores)
             total_score += self._score_critical_access(pid, data, window_start, component_scores)
-            
+            # total_score += self._score_disk_usage(pid,data,component_scores)
             # Log the final score breakdown if it's significant
             if total_score > 0:
                 logger.info(f"Process {pid} ({proc.name()}) score breakdown: {component_scores}, total: {total_score:.2f}")
@@ -285,7 +285,31 @@ class BehaviorMonitor:
                 logger.debug(f"PID {pid}: Average CPU {avg_cpu:.1f}%, score: {cpu_score:.2f}")
                 return cpu_score
         return 0
-    
+    def _score_disk_usage(self, pid, data, component_scores):
+        """Calculate score component for high disk I/O operations."""
+        disk_events = data.get("disk_history", [])
+        if not disk_events:
+            return 0
+
+        total_read_bytes = sum(event.get("read_bytes", 0) for event in disk_events)
+        total_write_bytes = sum(event.get("write_bytes", 0) for event in disk_events)
+
+        # Calculate rates (bytes per second)
+        time_span = max(1, disk_events[-1].get("time", 0) - disk_events[0].get("time", 0))
+        read_rate = total_read_bytes / time_span
+        write_rate = total_write_bytes / time_span
+
+        # Combined I/O rate (with higher weight for writes)
+        combined_rate_mb = (write_rate * 2 + read_rate) / (1024 * 1024)
+
+        if combined_rate_mb > 0:
+            # Score scales with I/O rate, capped at 10
+            disk_score = min(combined_rate_mb / 2, 10) * WEIGHTS["high_disk_usage"] / 10
+            component_scores["high_disk_usage"] = disk_score
+            logger.debug(f"PID {pid}: Disk I/O {combined_rate_mb:.1f} MB/s, score: {disk_score:.2f}")
+            return disk_score
+
+        return 0
     def _score_encrypted_writes(self, pid, data, window_start, component_scores):
         """Calculate score component for encrypted file writes."""
         recent_enc = sum(1 for ts, _ in data.get("encrypted_writes", []) if ts.timestamp() > window_start)
@@ -315,7 +339,7 @@ class BehaviorMonitor:
             logger.debug(f"PID {pid}: {recent_crit} critical system accesses in window, score: {crit_score:.2f}")
             return crit_score
         return 0
-    
+###########################################################################################################################   
     def _handle_malicious_process(self, pid, proc, score):
         """
         Handle a process that has been flagged as potentially malicious.

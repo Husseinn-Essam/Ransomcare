@@ -30,7 +30,7 @@ file_logger.setLevel(logging.DEBUG)
 # DETECTION THRESHOLDS AND TIMING
 #------------------------------------------------------------------------------
 THRESHOLD = 25              # The threshold score for flagging a process as malicious
-MONITOR_INTERVAL = 2        # Seconds between monitoring cycles
+MONITOR_INTERVAL = 2       # Seconds between monitoring cycles
 HISTORY_WINDOW = 60         # Seconds of history to keep for rate calculations
 
 # File operation monitoring settings
@@ -50,6 +50,7 @@ WEIGHTS = {
     "encrypted_file_writes": 40,     # High weight for encrypted writes
     "weird_extension_writes": 20,    # Moderate weight for suspicious extensions
     "critical_system_access": 30,    # High weight for critical system access
+    "high_disk_usage":0             # Lower weight for Disk usage
 }
 
 #------------------------------------------------------------------------------
@@ -79,11 +80,12 @@ IGNORED_PROCESSES = [
     'spoolsv.exe', 'smss.exe', 'ntoskrnl.exe', 'wininit.exe', 'taskhost.exe',
     'taskhostw.exe', 'RuntimeBroker.exe', 'SearchIndexer.exe', 'ShellExperienceHost.exe',
     'conhost.exe', 'backgroundTaskHost.exe', 'WmiPrvSE.exe', 'SettingSyncHost.exe',
+
     
     # Common applications (expanded)
     'chrome.exe', 'firefox.exe', 'msedge.exe', 'iexplore.exe', 
     'notepad.exe', 'calc.exe', 'mspaint.exe', 'winver.exe', 'control.exe',
-    'mmc.exe', 'msiexec.exe', 'cmd.exe',
+    'mmc.exe', 'msiexec.exe', 'cmd.exe','Code.exe',
     
     # Background services (streamlined)
     'audiodg.exe', 'SearchUI.exe', 'OneDrive.exe', 'MsMpEng.exe',
