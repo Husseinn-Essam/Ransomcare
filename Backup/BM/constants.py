@@ -1,29 +1,31 @@
 """
-Configuration constants for the ransomware detector.
+Constants and configuration settings for the ransomware detector.
 """
-import os
 
-# Trusted processes that should never be flagged
+import os
+import threading
+from collections import defaultdict, deque
+
+# Try to import Windows-specific modules safely
+try:
+    import winreg
+    import win32process
+    import win32con
+    import win32security
+    import win32api
+    import win32file
+    WINDOWS_MODULES_AVAILABLE = True
+except ImportError:
+    WINDOWS_MODULES_AVAILABLE = False
+
+# Trusted processes that should never be flagged (add your common applications)
 TRUSTED_PROCESSES = {
     "vscode.exe", "code.exe", "explorer.exe", "chrome.exe", "firefox.exe", 
     "outlook.exe", "notepad.exe", "msedge.exe", "brave.exe", "slack.exe",
     "powershell.exe", "cmd.exe", "python.exe", "svchost.exe", "spoolsv.exe",
     "devenv.exe", "winword.exe", "excel.exe", "powerpnt.exe", "teams.exe",
     "spotify.exe", "discord.exe", "msiexec.exe", "winzip.exe", "7z.exe",
-    "pycharm64.exe", "intellij.exe", "idea64.exe", "node.exe", "npm.exe", "windowsterminal.exe",
-
-    # Windows system processes that were falsely flagged
-    "applicationframehost.exe", "taskhostw.exe", "searchhost.exe",
-    "startmenuexperiencehost.exe", "runtimebroker.exe", "onedrive.exe",
-    "filecoauth.exe", "shellhost.exe", "securityhealthsystray.exe",
-    "openconsole.exe", "sihost.exe", "smartscreen.exe", "vboxtray.exe",
-    "cortana.exe", "backgroundtaskhost.exe", "dwm.exe", "lsass.exe",
-    "csrss.exe", "services.exe", "winlogon.exe", "wininit.exe",
-    "system", "registry", "smss.exe", "taskhost.exe", "conhost.exe",
-    "dllhost.exe", "taskmgr.exe", "fontdrvhost.exe", "ctfmon.exe",
-    "winstore.app.exe", "systemsettings.exe", "calculator.exe", "python3.13.exe",
-    "textinputhost.exe", "settingsynchost.exe", "microsoftedge.exe", "msedgewebview2.exe",
-    "nodejs.exe", "git.exe", "docker.exe", "wsl.exe", "notepad++.exe"
+    "pycharm64.exe", "intellij.exe", "idea64.exe", "node.exe", "npm.exe","windowsterminal.exe",
 }
 
 # File extensions commonly targeted by ransomware
@@ -43,6 +45,9 @@ RANSOMWARE_EXTENSIONS = {
     '.jaff', '.thor', '.rokku', '.globe', '.btc', '.killdisk', '.petya'
 }
 
+# Protected system directories (initialized in utils.py)
+PROTECTED_DIRS = set()
+
 # Adjusted feature weights based on effectiveness
 FEATURE_WEIGHTS = {
     'file_encryption_patterns': 10,    # High weight for clear encryption patterns
@@ -55,8 +60,7 @@ FEATURE_WEIGHTS = {
     'network_c2_traffic': 4,           # Potential command & control
     'ransomware_process_patterns': 5,  # Process behavior patterns
     'system_modifications': 6,         # Registry or service changes
-    'high_disk_usage': 3,              # High disk I/O operations
-    'ml_detection': 6,                 # Machine learning based detection
+    'high_disk_usage': 0,              # High disk I/O operations (Currently disabled by weight)
 }
 
 # Configuration of thresholds
@@ -66,28 +70,12 @@ MAX_HISTORY_ENTRIES = 1000            # Maximum events to track in history
 FILE_WATCH_INTERVAL = 0.5             # Seconds between file system checks
 PROCESS_CHECK_INTERVAL = 1            # Seconds between process checks
 EVENT_EXPIRY_TIME = 60                # Seconds before events expire from memory
+REANALYSIS_INTERVAL = 300             # Seconds (5 minutes) between re-analyzing existing processes
 
-# Initialize protected directories
-PROTECTED_DIRS = set()
-
-def initialize_protected_dirs():
-    """Initialize protected directories based on the OS"""
-    global PROTECTED_DIRS
-    system_drive = os.environ.get('SystemDrive', 'C:')
-    
-    base_dirs = [
-        os.path.join(system_drive, os.sep),
-        os.environ.get('USERPROFILE', os.path.join(system_drive, 'Users')),
-        os.environ.get('WINDIR', os.path.join(system_drive, 'Windows')),
-        os.path.join(system_drive, 'Program Files'),
-        os.path.join(system_drive, 'Program Files (x86)'),
-        os.path.join(system_drive, 'ProgramData'),
-    ]
-    
-    # Add user directories that are common targets
-    user_dir = os.environ.get('USERPROFILE')
-    if user_dir:
-        for folder in ['Documents', 'Pictures', 'Desktop', 'Downloads', 'Videos', 'Music']:
-            base_dirs.append(os.path.join(user_dir, folder))
-    
-    PROTECTED_DIRS = set(dir for dir in base_dirs if os.path.exists(dir))
+# ===== Global state =====
+process_history = defaultdict(lambda: deque(maxlen=MAX_HISTORY_ENTRIES))
+file_operations = defaultdict(lambda: deque(maxlen=MAX_HISTORY_ENTRIES))
+network_connections = defaultdict(lambda: deque(maxlen=MAX_HISTORY_ENTRIES))
+flagged_processes = set()             # PIDs of processes already flagged
+scan_lock = threading.Lock()          # Lock for thread safety
+stop_event = threading.Event()        # Event to signal threads to stop
