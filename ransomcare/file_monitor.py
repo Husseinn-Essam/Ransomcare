@@ -72,36 +72,44 @@ class FileMonitorHandler(FileSystemEventHandler):
         """Refresh the cache of running processes and their details."""
         cache = {}
         process_activity = defaultdict(int)
-        
+        disk_io_threshold = 10 * 1024 * 1024  # Example: 10MB threshold for disk I/O
+
         for proc in psutil.process_iter(['pid', 'name', 'exe', 'cmdline', 'username', 'cpu_percent']):
             try:
                 pid = proc.info['pid']
                 proc_name = proc.info['name']
-                
+
                 # Skip ignored processes
                 if proc_name.lower() in [p.lower() for p in IGNORED_PROCESSES]:
                     continue
-                
+
+                # Check disk I/O activity
+                try:
+                    io_counters = proc.io_counters()
+                    if io_counters.read_bytes + io_counters.write_bytes < disk_io_threshold:
+                        continue  # Skip processes with low disk usage
+                except (psutil.AccessDenied, psutil.NoSuchProcess):
+                    continue
+
                 # Get process details
                 cmdline = proc.info.get('cmdline', [])
                 cmdline_str = ' '.join(str(arg) for arg in cmdline) if cmdline and isinstance(cmdline, (list, tuple)) else ''
                 open_files = set()
                 accessed_dirs = set()
-                
+
                 # Only gather file details for non-system processes
                 try:
-                    if pid > 1000:  # Heuristic for user processes
-                        for file in proc.open_files():
-                            open_files.add(file.path)
-                            accessed_dirs.add(os.path.dirname(file.path))
-                        
-                        # Track CPU activity
-                        cpu = proc.cpu_percent(interval=0.1)
-                        if cpu > 0:
-                            process_activity[pid] += 1
+                    for file in proc.open_files():
+                        open_files.add(file.path)
+                        accessed_dirs.add(os.path.dirname(file.path))
+
+                    # Track CPU activity
+                    cpu = proc.cpu_percent(interval=0.1)
+                    if cpu > 0:
+                        process_activity[pid] += 1
                 except (psutil.AccessDenied, psutil.NoSuchProcess):
                     pass
-                
+
                 # Store process information
                 cache[pid] = {
                     'name': proc_name,
@@ -113,21 +121,21 @@ class FileMonitorHandler(FileSystemEventHandler):
                     'accessed_dirs': accessed_dirs,
                     'is_suspicious': False  # Placeholder for future enhancement
                 }
-                
+
                 # Update directory activity tracking
                 for dir_path in accessed_dirs:
                     if dir_path in self.directory_activity:
                         if pid not in [p for p, _ in self.directory_activity[dir_path]]:
                             self.directory_activity[dir_path].append((pid, datetime.now()))
-                
+
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
-                
+
         # Update our data structures
         self.process_cache = cache
         self.process_activity = process_activity
         self._clean_directory_activity()
-        
+
         logger.debug(f"Refreshed process cache: {len(cache)} processes")
 
     def _clean_directory_activity(self) -> None:

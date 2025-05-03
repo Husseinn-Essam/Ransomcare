@@ -50,7 +50,7 @@ WEIGHTS = {
     "encrypted_file_writes": 40,     # High weight for encrypted writes
     "weird_extension_writes": 20,    # Moderate weight for suspicious extensions
     "critical_system_access": 30,    # High weight for critical system access
-    "high_disk_usage":0             # Lower weight for Disk usage
+    "high_disk_usage":15             # Lower weight for Disk usage
 }
 
 #------------------------------------------------------------------------------
@@ -85,7 +85,7 @@ IGNORED_PROCESSES = [
     # Common applications (expanded)
     'chrome.exe', 'firefox.exe', 'msedge.exe', 'iexplore.exe', 
     'notepad.exe', 'calc.exe', 'mspaint.exe', 'winver.exe', 'control.exe',
-    'mmc.exe', 'msiexec.exe', 'cmd.exe','Code.exe',
+    'mmc.exe', 'msiexec.exe', 'cmd.exe',
     
     # Background services (streamlined)
     'audiodg.exe', 'SearchUI.exe', 'OneDrive.exe', 'MsMpEng.exe',
